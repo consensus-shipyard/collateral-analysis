@@ -70,7 +70,7 @@ def main():
     # w=3.0
     # omega=0.0
 
-    dist, n, q, f, max_a, C, w, omega = default_parameters()
+    dist, n, q, f, max_a, C, w, omega = parameters_from_input()# default_parameters_example1()
 
     print("With the given parameters, the subnet is incentive-compatible against an attack into:\n")
     for a in range(2,max_a+1):
@@ -115,7 +115,7 @@ def parameters_from_input():
 
     return dist, n, q, f, max_a, C, w, omega
 
-def default_parameters():
+def default_parameters_example1():
     return LogNormalDistribution(mu=-1.0, sigma=1.0), 100, 67, 66, 34, 330, 3, 0
 
 if __name__ == "__main__":
