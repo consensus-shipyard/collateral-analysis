@@ -56,7 +56,7 @@ def collateral_lower_bound(total_collateral, collateral, n):
     return min(total_collateral, collateral*n)
 
 def main():
-    dist, n, q, f, max_a, C, w, omega = default_parameters_example1()
+    dist, n, q, f, max_a, C, w, omega = parameters_from_input() #default_parameters_example1()
 
     print("With the given parameters, the subnet is incentive-compatible against an attack into:\n")
     for a in range(2,max_a+1):
