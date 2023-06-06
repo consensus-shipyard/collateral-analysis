@@ -30,7 +30,7 @@ def fork_max_branches(n, q, f):
 
 # returns the minimum adversary that can perform a multiple spending attack with a branches 
 def minimum_adversary(a, n, q):
-    f = n - a * (q - 1)
+    f = (a*q-n)/(a-1)
     return int(f)
 
 # If expected_total_loss is positive, that means that attackers will lose that amount in expectation from performing the attack with the provided parameters. If it is negative, the attackers will win the absolute value of that amount in expectation.
@@ -56,25 +56,13 @@ def collateral_lower_bound(total_collateral, collateral, n):
     return min(total_collateral, collateral*n)
 
 def main():
-    # log_normal_dist = LogNormalDistribution(mu=-1.0, sigma=1.0)
-    # x = 1.5
-
-    # log_normal_cdf = log_normal_dist.cdf(x)
-    # print("LogNormal CDF:", log_normal_cdf)
-
-    # n=100.0
-    # q=math.ceil(2*n/3)
-    # f=q-1
-    # C=330.0
-    # m=324.0
-    # w=3.0
-    # omega=0.0
-
-    dist, n, q, f, max_a, C, w, omega = parameters_from_input()# default_parameters_example1()
+    dist, n, q, f, max_a, C, w, omega = default_parameters_example1()
 
     print("With the given parameters, the subnet is incentive-compatible against an attack into:\n")
     for a in range(2,max_a+1):
-        m = maximum_safe_spend(a, C, w, omega, dist)
+        c = C/n
+        slashable_collateral = minimum_adversary(a, n, q)*c
+        m = maximum_safe_spend(a, slashable_collateral, w, omega, dist)
         print("{:<4} branches with {:.5f} coins, or".format(a, m))
 
 def parameters_from_input():
@@ -116,7 +104,7 @@ def parameters_from_input():
     return dist, n, q, f, max_a, C, w, omega
 
 def default_parameters_example1():
-    return LogNormalDistribution(mu=-1.0, sigma=1.0), 100, 67, 66, 34, 330, 3, 0
+    return LogNormalDistribution(mu=-1.0, sigma=1.0), 100, 67, 66, 34, 1000, 3, 0
 
 if __name__ == "__main__":
     main()
