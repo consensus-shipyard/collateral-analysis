@@ -1,6 +1,8 @@
 from scipy.stats import lognorm
 import math
 from abc import ABC, abstractmethod
+import sys
+import argparse
 
 """
 This program is the result of a game-theoretical analysis on collateral for IPC subnets.
@@ -9,6 +11,19 @@ https://docs.google.com/document/d/17KQfgiaaNsXPzDRshhMBVyr-gtQX2UmisqwhXdDSwuM/
 """
 
 
+# Define command-line arguments
+parser = argparse.ArgumentParser(description="Program description")
+parser.add_argument("-n", type=float, help="Number of members in the committee", default=-1.0)
+parser.add_argument("-q", type=float, help="Quorum size", default=-1.0)
+parser.add_argument("-f", type=float, help="Rational adversary threshold", default=-1.0)
+parser.add_argument("-a", type=float, help="Number of branches in equivocation attack", default=-1.0)
+parser.add_argument("-C", type=float, help="Minimum total collateral of the committee", default=-1.0)
+parser.add_argument("-c", type=float, help="Minimum collateral per member", default=-1.0)
+parser.add_argument("-w", type=float, help="Block delay between unstaking request and actual collateral released", default=-1.0)
+parser.add_argument("-o", type=float, help="Transaction finalization delay in number of blocks", default=-1.0)
+parser.add_argument("-t", type=float, help="Block production time", default=-1.0)
+parser.add_argument("-m", type=float, help="Balance of attackers in equivocation attack", default=-1.0)
+parser.add_argument("-dist", type=float, help="(UNUSED FOR NOW) Select option of message delay distribution (currently only lognormal with mu=-1.0, sigma=1)", default=-1.0)
 
 class RandomDistribution(ABC):
     @abstractmethod
@@ -22,6 +37,85 @@ class LogNormalDistribution(RandomDistribution):
 
     def cdf(self, x):
         return lognorm.cdf(x, s=self.sigma, scale=math.exp(self.mu))
+
+def retrieve_dist():
+    mu = -1.0
+    sigma = 1.0
+    return LogNormalDistribution(mu=mu, sigma=sigma)
+
+def retrieve_n():
+    args = parser.parse_args()
+    if args.n >= 0:
+        return args.n
+    else:
+        return float(input("Enter the number of players in the committee: "))
+
+def retrieve_q():
+    args = parser.parse_args()
+    if args.q >= 0:
+        return args.q
+    else:
+        return float(input("Enter the quorum size: "))
+
+
+def retrieve_f():
+    args = parser.parse_args()
+    if args.f >= 0:
+        return args.f
+    else:
+        return float(input("Enter the rational adversary threshold: "))
+
+def retrieve_a(needed:bool):
+    args = parser.parse_args()
+    if args.a >= 0:
+        return args.a
+    elif needed:
+        return float(input("Enter the number of branches in equivocation attack: "))
+    return 0
+
+def retrieve_C(needed:bool):
+    args = parser.parse_args()
+    if args.C >= 0:
+        return args.C
+    elif needed:
+        return float(input("Enter the minimum total collateral: "))
+    return 0
+
+def retrieve_c(needed:bool):
+    args = parser.parse_args()
+    if args.c >= 0:
+        return args.c
+    elif needed:
+        return float(input("Enter the minimum collateral per player: "))
+    return 0
+
+def retrieve_w():
+    args = parser.parse_args()
+    if args.w >= 0:
+        return args.w
+    else:
+        return float(input("Enter the block delay between unstaking request and actual collateral released "))
+
+def retrieve_omega():
+    args = parser.parse_args()
+    if args.o >= 0:
+        return args.o
+    else:
+        return float(input("Enter the transaction finalization delay in number of blocks: "))
+
+def retrieve_t():
+    args = parser.parse_args()
+    if args.t >= 0:
+        return args.t
+    else:
+        return float(input("Enter the block production time (in seconds): "))
+
+def retrieve_m():
+    args = parser.parse_args()
+    if args.m >= 0:
+        return args.m
+    else:
+        return float(input("Enter the balance of attackers in equivocation attack: "))
 
 # returns the maximum number of branches that can be performed by an attacker of that power
 def fork_max_branches(n, q, f):
@@ -56,53 +150,56 @@ def collateral_lower_bound(total_collateral, collateral, n):
     return max(total_collateral, collateral*n)
 
 def main():
-    dist, n, q, f, max_a, C, w, omega = parameters_from_input() #default_parameters_example1()
 
-    c = C/n
-    slashable_collateral = minimum_adversary(max_a, n, q)*c #the hardest scenario is for max_a
-    m = maximum_safe_spend(max_a, slashable_collateral, w, omega, dist)
-    print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins".format(max_a, m))
+    option = starting_menu()
+    if option == "1":
+        dist = retrieve_dist()
+        n = retrieve_n()
+        q = retrieve_q()
+        f = retrieve_f()
+        a = retrieve_a(False)
 
-def parameters_from_input():
+        if a == 0:
+            a = fork_max_branches(n, q, f)
+            if a == 1:
+                sys.exit("The adversary is not big enough to equivocate given the quorum size")
+
+        C = retrieve_C(False)
+
+        needed = False
+        if C==0:
+            needed = True
+
+        c = retrieve_c(needed)
+        C = collateral_lower_bound(C, c, n)
+
+        w_blocks = retrieve_w()
+        blocktime = retrieve_t()
+        w = blocktime * w_blocks
+
+        omega_blocks = retrieve_omega()
+        omega = omega_blocks*blocktime
+
+        c = C/n
+        slashable_collateral = minimum_adversary(a, n, q)*c
+        m = maximum_safe_spend(a, slashable_collateral, w, omega, dist)
+        print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins".format(a, m))
+    elif option == "2":
+        sys.exit("Invalid option {} selected".format(option))
+    else:
+        sys.exit("Invalid option {} selected".format(option))
+
+def starting_menu():
+    print("Select the parameter to recommend for incentive-compatibility against equivocation attack")
+    print("1. Attackers balance to multiply spend")
+    print("2. Transaction/block finalization delay")
+    return input("Your option: ")
+
+def op1_parameters():
     # If no, then draw from the default libp2p measurements lognormal mu=-1.0 sigma=1.0
-    distr_input = input("Would you like to follow the recommended message delay distribution (Y/n) ")
-    if distr_input == 'n':
-        print("We do not tolerate any other distribution for the moment")
-        exit
 
-    mu = -1.0
-    sigma = 1.0
-    dist = LogNormalDistribution(mu=mu, sigma=sigma)
-
-    # At the moment, we assume no committee rotation (full participation)
-    n = float(input("Enter the number of players in the committee: "))
-    q = float(input("Enter the quorum size q \in ({},{}]: ".format(int(n/2),int(n))))
-    f = float(input("Enter the rational adversary that should be tolerated f \in [0,{}): ".format(int(q))))
-    max_a = fork_max_branches(n, q, f)
-    if max_a == 1:
-        print("That adversary is not big enough to double-spend given the quorum size: ")
-        exit
-
-    print("The size of this rational adversary means it can equivocate into up to {} distinct blocks in one iteration".format(max_a))
-
-    total_collateral_input = float(input("Enter the minimum total collateral: "))
-    collateral_input = float(input("Enter the minimum collateral per process: "))
-
-    C = collateral_lower_bound(total_collateral_input, collateral_input, n)
-
-    w_blocks = float(input("Enter the number of blocks between when a request to retrieve collateral is written in the parent subnet and when it is executed to unstake the collateral: "))
-    blocktime = float(input("Enter the expected block production time of the subnet (in seconds) "))
-
-    w = blocktime * w_blocks
-
-    omega_blocks = float(input("Enter the number of blocks for an application to consider a transaction in the subnet as final (0 if immediate): "))
-
-    omega = omega_blocks*blocktime
 
     return dist, n, q, f, max_a, C, w, omega
-
-def default_parameters_example1():
-    return LogNormalDistribution(mu=-1.0, sigma=1.0), 100, 67, 66, 34, 1000, 3, 0
 
 if __name__ == "__main__":
     main()
