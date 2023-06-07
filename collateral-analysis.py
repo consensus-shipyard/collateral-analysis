@@ -11,7 +11,6 @@ For more information on that analysis, see:
 https://docs.google.com/document/d/17KQfgiaaNsXPzDRshhMBVyr-gtQX2UmisqwhXdDSwuM/edit#
 """
 
-
 # Define command-line arguments
 parser = argparse.ArgumentParser(description="Program description")
 parser.add_argument("-n", type=float, help="Number of members in the committee", default=-1.0)
@@ -25,6 +24,7 @@ parser.add_argument("-o", type=float, help="Transaction finalization delay in nu
 parser.add_argument("-t", type=float, help="Block production time", default=-1.0)
 parser.add_argument("-m", type=float, help="Balance of attackers in equivocation attack", default=-1.0)
 parser.add_argument("-dist", type=float, help="(UNUSED FOR NOW) Select option of message delay distribution (currently only lognormal with mu=-1.0, sigma=1)", default=-1.0)
+parser.add_argument("-opt", type=int, help="Select the parameter to recommend for incentive-compatibility against equivocation attack", default=-1)
 
 class RandomDistribution(ABC):
     @abstractmethod
@@ -44,33 +44,28 @@ class LogNormalDistribution(RandomDistribution):
     def ppf(self, p):
         return lognorm.ppf(p, s=self.sigma, scale=math.exp(self.mu))
 
-def retrieve_dist():
-    mu = -1.0
-    sigma = 1.0
-    return LogNormalDistribution(mu=mu, sigma=sigma)
-
-def retrieve_n():
+def get_n():
     args = parser.parse_args()
     if args.n >= 0:
         return args.n
     else:
         return float(input("Enter the number of players in the committee: "))
 
-def retrieve_q():
+def get_q():
     args = parser.parse_args()
     if args.q >= 0:
         return args.q
     else:
         return float(input("Enter the quorum size: "))
 
-def retrieve_f():
+def get_f():
     args = parser.parse_args()
     if args.f >= 0:
         return args.f
     else:
         return float(input("Enter the rational adversary threshold: "))
 
-def retrieve_a(needed:bool):
+def get_a(needed:bool):
     args = parser.parse_args()
     if args.a >= 0:
         return args.a
@@ -78,7 +73,7 @@ def retrieve_a(needed:bool):
         return float(input("Enter the number of branches in equivocation attack: "))
     return 0
 
-def retrieve_C(needed:bool):
+def get_C(needed:bool):
     args = parser.parse_args()
     if args.C >= 0:
         return args.C
@@ -86,7 +81,7 @@ def retrieve_C(needed:bool):
         return float(input("Enter the minimum total collateral: "))
     return 0
 
-def retrieve_c(needed:bool):
+def get_c(needed:bool):
     args = parser.parse_args()
     if args.c >= 0:
         return args.c
@@ -94,33 +89,51 @@ def retrieve_c(needed:bool):
         return float(input("Enter the minimum collateral per player: "))
     return 0
 
-def retrieve_w():
+def get_w():
     args = parser.parse_args()
     if args.w >= 0:
         return args.w
     else:
         return float(input("Enter the block delay between unstaking request and actual collateral released "))
 
-def retrieve_omega():
+def get_omega():
     args = parser.parse_args()
     if args.o >= 0:
         return args.o
     else:
         return float(input("Enter the transaction finalization delay in number of blocks: "))
 
-def retrieve_t():
+def get_t():
     args = parser.parse_args()
     if args.t >= 0:
         return args.t
     else:
         return float(input("Enter the block production time (in seconds): "))
 
-def retrieve_m():
+def get_m():
     args = parser.parse_args()
     if args.m >= 0:
         return args.m
     else:
         return float(input("Enter the balance of attackers in equivocation attack: "))
+
+def get_dist():
+    mu = -1.0
+    sigma = 1.0
+    return LogNormalDistribution(mu=mu, sigma=sigma)
+
+def starting_menu():
+    print("Select the parameter to recommend for incentive-compatibility against equivocation attack")
+    print("1. Attackers balance to multiply spend")
+    print("2. Transaction/block finalization delay")
+    return input("Your option: ")
+
+def get_opt():
+    args = parser.parse_args()
+    if args.opt >= 0:
+        return args.opt
+    else:
+        return starting_menu()
 
 # returns the maximum number of branches that can be performed by an attacker of that power
 def fork_max_branches(n, q, f):
@@ -170,80 +183,74 @@ def collateral_lower_bound(total_collateral, collateral, n):
 
 def main():
 
-    option = starting_menu()
-    if option == "1":
-        dist = retrieve_dist()
-        n = retrieve_n()
-        q = retrieve_q()
-        f = retrieve_f()
-        a = retrieve_a(False)
+    option = get_opt()
+    if option == 1:
+        dist = get_dist()
+        n = get_n()
+        q = get_q()
+        f = get_f()
+        a = get_a(False)
 
         if a == 0:
             a = fork_max_branches(n, q, f)
             if a == 1:
                 sys.exit("The adversary is not big enough to equivocate given the quorum size")
 
-        C = retrieve_C(False)
+        C = get_C(False)
 
         needed = False
         if C==0:
             needed = True
 
-        c = retrieve_c(needed)
+        c = get_c(needed)
         C = collateral_lower_bound(C, c, n)
 
-        w_blocks = retrieve_w()
-        blocktime = retrieve_t()
+        w_blocks = get_w()
+        blocktime = get_t()
         w = blocktime * w_blocks
 
-        omega_blocks = retrieve_omega()
+        omega_blocks = get_omega()
         omega = omega_blocks*blocktime
 
         c = C/n
         slashable_collateral = minimum_adversary(a, n, q)*c
         m = maximum_safe_spend(a, slashable_collateral, w, omega, dist)
-        print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins".format(a, m))
-    elif option == "2":
-        dist = retrieve_dist()
-        n = retrieve_n()
-        q = retrieve_q()
-        f = retrieve_f()
-        a = retrieve_a(False)
+        print("With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend up to {:.3f} coins".format(m))
+    elif option == 2:
+        dist = get_dist()
+        n = get_n()
+        q = get_q()
+        f = get_f()
+        a = get_a(False)
 
         if a == 0:
             a = fork_max_branches(n, q, f)
             if a == 1:
                 sys.exit("The adversary is not big enough to equivocate given the quorum size")
 
-        C = retrieve_C(False)
+        C = get_C(False)
 
         needed = False
         if C==0:
             needed = True
 
-        c = retrieve_c(needed)
+        c = get_c(needed)
         C = collateral_lower_bound(C, c, n)
 
-        w_blocks = retrieve_w()
-        blocktime = retrieve_t()
+        w_blocks = get_w()
+        blocktime = get_t()
         w = blocktime * w_blocks
 
         c = C/n
         slashable_collateral = minimum_adversary(a, n, q)*c
 
-        m = retrieve_m()
+        m = get_m()
 
         omega_time = minimum_finalization_delay(a, slashable_collateral, w, m, dist)
 
-        print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins by delaying finalization at least {} blocks".format(a, m, math.ceil(omega_time/blocktime)))
+        print("With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend by delaying finalization at least {} blocks".format(math.ceil(omega_time/blocktime)))
     else:
         sys.exit("Invalid option {} selected".format(option))
-
-def starting_menu():
-    print("Select the parameter to recommend for incentive-compatibility against equivocation attack")
-    print("1. Attackers balance to multiply spend")
-    print("2. Transaction/block finalization delay")
-    return input("Your option: ")
 
 def op1_parameters():
     # If no, then draw from the default libp2p measurements lognormal mu=-1.0 sigma=1.0
