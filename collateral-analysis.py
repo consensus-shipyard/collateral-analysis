@@ -1,4 +1,5 @@
 from scipy.stats import lognorm
+from scipy.optimize import root_scalar
 import math
 from abc import ABC, abstractmethod
 import sys
@@ -29,6 +30,8 @@ class RandomDistribution(ABC):
     @abstractmethod
     def cdf(self, x):
         pass
+    def ppf(self, p):
+        pass
 
 class LogNormalDistribution(RandomDistribution):
     def __init__(self, mu, sigma):
@@ -37,6 +40,9 @@ class LogNormalDistribution(RandomDistribution):
 
     def cdf(self, x):
         return lognorm.cdf(x, s=self.sigma, scale=math.exp(self.mu))
+
+    def ppf(self, p):
+        return lognorm.ppf(p, s=self.sigma, scale=math.exp(self.mu))
 
 def retrieve_dist():
     mu = -1.0
@@ -56,7 +62,6 @@ def retrieve_q():
         return args.q
     else:
         return float(input("Enter the quorum size: "))
-
 
 def retrieve_f():
     args = parser.parse_args()
@@ -138,14 +143,28 @@ def expected_total_loss(a, C, m, w, omega, x_dist: RandomDistribution):
 
 # maximum_safe_spend returns the maximum amount that the attackers would not multiply spend 
 # as they would in expectation lose more than they win
-def maximum_safe_spend(a, C, w, omega, x_dist: RandomDistribution):
-    return x_dist.cdf(w)/(a-1)*C
+# this is useful for a subnet to decide a delayed time to return collateral
+# in order to tolerate a specific rational adversary
+def maximum_safe_spend(a, C, w, omega, dist: RandomDistribution):
+    return dist.cdf(w)/(a-1)*C*(1-dist.cdf(omega))
+
+# minimum_transaction_delay returns the maximum amount that the attackers would not multiply spend 
+# as they would in expectation lose more than they win
+# this is useful for applications if they want to tolerate an adversary greater
+# than what the particular subnet's default parameters tolerates, in that they
+# can require delayed finalization of their transactions for their application
+# depending on the transaction balance or the block's balance where the transaction is included.
+def minimum_finalization_delay(a, C, w, m, dist: RandomDistribution):
+    target_cdf = (m*(a-1)-C*dist.cdf(w))/(m*(a-1))
+    if target_cdf <= 0.0:
+        return 0
+    return dist.ppf(target_cdf)
 
 def collateral_lower_bound(total_collateral, collateral, n):
     if int(total_collateral) == 0:
         return collateral*n
     if int(collateral) == 0:
-        return total_collateral 
+        return total_collateral
 
     return max(total_collateral, collateral*n)
 
@@ -185,7 +204,38 @@ def main():
         m = maximum_safe_spend(a, slashable_collateral, w, omega, dist)
         print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins".format(a, m))
     elif option == "2":
-        sys.exit("Invalid option {} selected".format(option))
+        dist = retrieve_dist()
+        n = retrieve_n()
+        q = retrieve_q()
+        f = retrieve_f()
+        a = retrieve_a(False)
+
+        if a == 0:
+            a = fork_max_branches(n, q, f)
+            if a == 1:
+                sys.exit("The adversary is not big enough to equivocate given the quorum size")
+
+        C = retrieve_C(False)
+
+        needed = False
+        if C==0:
+            needed = True
+
+        c = retrieve_c(needed)
+        C = collateral_lower_bound(C, c, n)
+
+        w_blocks = retrieve_w()
+        blocktime = retrieve_t()
+        w = blocktime * w_blocks
+
+        c = C/n
+        slashable_collateral = minimum_adversary(a, n, q)*c
+
+        m = retrieve_m()
+
+        omega_time = minimum_finalization_delay(a, slashable_collateral, w, m, dist)
+
+        print("With the given parameters, the subnet is incentive-compatible against an attack that equivocates into {} branches with {:.3f} coins by delaying finalization at least {} blocks".format(a, m, math.ceil(omega_time/blocktime)))
     else:
         sys.exit("Invalid option {} selected".format(option))
 
