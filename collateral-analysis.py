@@ -126,6 +126,7 @@ def starting_menu():
     print("Select the parameter to recommend for incentive-compatibility against equivocation attack")
     print("1. Attackers balance to multiply spend")
     print("2. Transaction/block finalization delay")
+    print("3. Adversarial size")
     return input("Your option: ")
 
 def get_opt():
@@ -249,6 +250,40 @@ def main():
         omega_time = minimum_finalization_delay(a, slashable_collateral, w, m, dist)
 
         print("With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend by delaying finalization at least {} blocks".format(math.ceil(omega_time/blocktime)))
+    elif option == 3:
+        dist = get_dist()
+        n = get_n()
+        q = get_q()
+        m = get_m()
+        a = get_a(False)
+
+        C = get_C(False)
+
+        needed = False
+        if C==0:
+            needed = True
+
+        c = get_c(needed)
+        C = collateral_lower_bound(C, c, n)
+
+        w_blocks = get_w()
+        blocktime = get_t()
+        w = blocktime * w_blocks
+
+        omega_blocks = get_omega()
+        omega = omega_blocks*blocktime
+
+        c = C/n
+        f = math.ceil(n/3)-1
+        for f_sim in reversed(range(int(2*q-n),int(q-1))):
+            a = fork_max_branches(n,q,f_sim)
+            slashable_collateral = minimum_adversary(a, n, q)*c
+            m_sim = maximum_safe_spend(a, slashable_collateral, w, omega, dist)
+            if m_sim >= m:
+                f = f_sim
+                break;
+            
+        print("With the given parameters, the subnet is incentive-compatible against a rational adversary of size {} validators ({}% of the committee)".format(f, f*100.0/n))
     else:
         sys.exit("Invalid option {} selected".format(option))
 
