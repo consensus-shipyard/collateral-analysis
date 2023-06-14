@@ -23,3 +23,13 @@ Example: suppose an application that uses the subnet from the previous example (
 $> python3 collateral-analysis.py -n 100 -q 67 -f 49 -C 1000 -w 3 -t 1 -o 0 -m 10000 -opt 2
 With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend by delaying finalization at least 3 blocks
 ```
+
+## Option 3 - Adversarial size
+Analogously to option 1, this option instructs the program to output, given the rest of the parameters, the maximum adversarial size for which a subnet with the given parameters ensures the rational adversary will not try to perform an equivocation attack to multiply send. This option is well-suited for subnets to manually configure parameters in order to tolerate a desired adversary, or purely for informative purposes for users of the subnet.
+
+Example: suppose a set of 100 participants want to create a subnet running the IPC reference implementation such that at least 330 coins of total collateral must be stored by participants in order for the subnet to be active, and they want to tolerate deviations to multiply spend up to 350 coins, provide immediate finalization of transactions, and allow participants to unstake collateral 3 blocks after the unstaking request. The block production latency is about 1 second. Then:
+
+```
+$> python3 collateral-analysis.py -n 100 -q 67 -C 1000 -w 3 -t 1 -o 0 -m 330 -opt 3
+With the given parameters, the subnet is incentive-compatible against a rational adversary of size 50 validators (50.0% of the committee)
+```
