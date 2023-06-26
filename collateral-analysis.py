@@ -160,9 +160,16 @@ def expected_total_loss(a, C, m, w, omega, x_dist: RandomDistribution):
 # this is useful for a subnet to decide a delayed time to return collateral
 # in order to tolerate a specific rational adversary
 def maximum_safe_spend(a, C, w, omega, dist: RandomDistribution):
-    return dist.cdf(w)/(a-1)*C*(1-dist.cdf(omega))
+    return (C*dist.cdf(w))/((a-1)*(1-dist.cdf(omega)))
 
-# minimum_transaction_delay returns the maximum amount that the attackers would not multiply spend 
+# minimum_collateral returns the minimum collateral for which the attackers would not multiply spend 
+# as they would in expectation lose more than they win
+# this is useful for a subnet's configuration
+# in order to tolerate a specific rational adversary
+def minimum_collateral(a, w, omega, m, dist: RandomDistribution):
+    return ((a-1)*m*(1-dist.cdf(omega)))/dist.cdf(w)
+
+# minimum_transaction_delay returns the minimum tx finalization delay for which the attackers would not multiply spend 
 # as they would in expectation lose more than they win
 # this is useful for applications if they want to tolerate an adversary greater
 # than what the particular subnet's default parameters tolerates, in that they
@@ -284,6 +291,29 @@ def main():
                 break;
             
         print("With the given parameters, the subnet is incentive-compatible against a rational adversary of size {} validators ({}% of the committee)".format(f, f*100.0/n))
+    elif option == 4:
+        dist = get_dist()
+        n = get_n()
+        q = get_q()
+        f = get_f()
+        a = get_a(False)
+        m = get_m()
+        
+        if a == 0:
+            a = fork_max_branches(n, q, f)
+            if a == 1:
+                sys.exit("The adversary is not big enough to equivocate given the quorum size")
+
+        w_blocks = get_w()
+        blocktime = get_t()
+        w = blocktime * w_blocks
+
+        omega_blocks = get_omega()
+        omega = omega_blocks*blocktime
+
+        C = minimum_collateral(a, w, omega, m, dist)
+        c = C/minimum_adversary(a, n, q)
+        print("With the given parameters, the subnet is incentive-compatible against a rational adversary if it stakes {:.3f} coins, meaning each of the {} validators stores {:.2f} coins".format(C, int(n), c))        
     else:
         sys.exit("Invalid option {} selected".format(option))
 
