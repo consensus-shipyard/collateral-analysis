@@ -10,7 +10,7 @@ When selecting this option, the program will calculate, given the rest of the pa
 Example: suppose a set of 100 participants want to create a subnet running the IPC reference implementation such that at least 1000 coins of total collateral must be stored by participants in order for the subnet to be active, and they want to tolerate a rational coalition of up to 49 participants (100/2 - 1), provide immediate finalization of transactions, and allow participants to unstake collateral 3 blocks after the unstaking request. The block production latency is about 1 second. Then:
 
 ```
-$> python3 collateral-analysis.py -n 100 -q 67 -f 49 -C 1000 -w 3 -t 1 -o 0 -opt 1
+$> python3 collateral_analysis.py -n 100 -q 67 -f 49 -C 1000 -w 3 -t 1 -o 0 -opt 1
 With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend up to 333.905 coins
 ```
 
@@ -20,7 +20,7 @@ When selecting this option, the program will calculate, given the rest of the pa
 Example: suppose an application that uses the subnet from the previous example (with the exact same parameters). However, this application deals with large quantities of coins at once (i.e. 10000 instead of 350) and thus it cannot ensure protection against double spends from its transactions by a rational adversary. Then the subnet can instead manually enforce a delayed finalization of a number of blocks:
 
 ```
-$> python3 collateral-analysis.py -n 100 -q 67 -f 49 -C 1000 -w 3 -t 1 -o 0 -m 10000 -opt 2
+$> python3 collateral_analysis.py -n 100 -q 67 -f 49 -C 1000 -w 3 -t 1 -o 0 -m 10000 -opt 2
 With the given parameters, the subnet is incentive-compatible against a rational adversary trying to multiply spend by delaying finalization at least 3 blocks
 ```
 
@@ -30,6 +30,17 @@ Analogously to option 1, this option instructs the program to output, given the 
 Example: suppose a set of 100 participants want to create a subnet running the IPC reference implementation such that at least 330 coins of total collateral must be stored by participants in order for the subnet to be active, and they want to tolerate deviations to multiply spend up to 350 coins, provide immediate finalization of transactions, and allow participants to unstake collateral 3 blocks after the unstaking request. The block production latency is about 1 second. Then:
 
 ```
-$> python3 collateral-analysis.py -n 100 -q 67 -C 1000 -w 3 -t 1 -o 0 -m 330 -opt 3
+$> python3 collateral_analysis.py -n 100 -q 67 -C 1000 -w 3 -t 1 -o 0 -m 330 -opt 3
 With the given parameters, the subnet is incentive-compatible against a rational adversary of size 50 validators (50.0% of the committee)
 ```
+
+## Option 4 - Minimum collateral 
+This option provides the minimum collateral (both in total per subnet and also per validator) in order to ensure incentive compatibility of the subnet given the rest of the parameters. This is useful for subnets to enforce a level of security and become inactive if the level is not reached.
+
+Example: 
+```
+$> python3 collateral_analysis.py -n 100 -q 67 -f 49 -C 334 -m 111.524 -w 3 -t 1 -o 0 -opt 4
+<ral_analysis.py -n 100 -q 67 -f 49 -C 334 -m 111.524 -w 3 -t 1 -o 0 -opt 4
+With the given parameters, the subnet is incentive-compatible against a rational adversary if it stakes 113.560 coins, meaning each of the 100 validators stores 3.34 coins
+```
+
