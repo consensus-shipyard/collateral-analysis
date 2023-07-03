@@ -148,11 +148,7 @@ def minimum_adversary(a, n, q):
 
 # If expected_total_loss is positive, that means that attackers will lose that amount in expectation from performing the attack with the provided parameters. If it is negative, the attackers will win the absolute value of that amount in expectation.
 def expected_total_loss(a, C, m, w, omega, x_dist: RandomDistribution):
-    p_x_greater_w = 1 - x_dist.cdf(w)
-    p_omega_less_x_greater_w = x_dist.cdf(w) - x_dist.cdf(omega)
-
-    value = C + p_x_greater_w * (m * (1 - a) - C) - (a - 1) * p_omega_less_x_greater_w * m
-
+    value = x_dist.cdf(w)*C - (a-1)*(1-x_dist.cdf(omega))*m
     return value
 
 # maximum_safe_spend returns the maximum amount that the attackers would not multiply spend 
@@ -169,7 +165,7 @@ def maximum_safe_spend(a, C, w, omega, dist: RandomDistribution):
 def minimum_collateral(a, w, omega, m, dist: RandomDistribution):
     return ((a-1)*m*(1-dist.cdf(omega)))/dist.cdf(w)
 
-# minimum_transaction_delay returns the minimum tx finalization delay for which the attackers would not multiply spend 
+# minimum_finalization_delay returns the minimum tx finalization delay for which the attackers would not multiply spend 
 # as they would in expectation lose more than they win
 # this is useful for applications if they want to tolerate an adversary greater
 # than what the particular subnet's default parameters tolerates, in that they
